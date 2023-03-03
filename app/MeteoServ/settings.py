@@ -85,7 +85,7 @@ WSGI_APPLICATION = 'MeteoServ.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'djongo',
-        'NAME': 'meteostation_db',
+        'NAME': 'meteoDB',
         'HOST': '127.0.0.1',
         'PORT': 27017,
     }

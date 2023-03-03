@@ -11,11 +11,13 @@ class StationSerializer(serializers.ModelSerializer):
 		          'description',
 		          'address')
 
+
 class MeteoInfoRequestSerializer(serializers.ModelSerializer):
 	class Meta:
 		model = MeteoInfo
 		fields = ('id',
 		          'station',)
+
 
 class MeteoInfoSerializer(serializers.ModelSerializer):
 	class Meta:
@@ -24,7 +26,9 @@ class MeteoInfoSerializer(serializers.ModelSerializer):
 		          'station',
 		          'content',
 		          'date_time',
-		          'author',)
+		          #'author',
+		          )
+
 
 class UserSerializer(serializers.ModelSerializer):
 	class Meta:
@@ -33,11 +37,22 @@ class UserSerializer(serializers.ModelSerializer):
 		          'username',
 		          'info_requests_count',
 		          'stations_whitelist',
-		          'meteo_infos',
+		          #'meteo_infos',
 		          )
+
 
 class UserStationsUpdateSerializer(serializers.ModelSerializer):
 	class Meta:
 		model = User
 		fields = ('id',
+		          )
+
+
+class NewUserSerializer(serializers.ModelSerializer):
+	class Meta:
+		model = User
+		fields = ('username',
+		          'password',
+		          'email',
+		          'stations_whitelist',
 		          )

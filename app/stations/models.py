@@ -24,7 +24,7 @@ class MeteoInfo(models.Model):
     content = models.JSONField()
     current_datetime = timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M:%S")
     date_time = models.DateTimeField(default=current_datetime)
-    author = models.ForeignKey(User, on_delete=models.SET_DEFAULT, default=0)
+    # author = models.ForeignKey(User, on_delete=models.SET_DEFAULT, default=0)
 
 
     def __str__(self):
@@ -36,4 +36,4 @@ class MeteoInfo(models.Model):
 
 User.add_to_class('info_requests_count', models.IntegerField(default=0))
 User.add_to_class('stations_whitelist', models.ManyToManyField(Station, default=0))
-User.add_to_class('meteo_infos', models.ManyToManyField(MeteoInfo, default=0, editable=False))
+# User.add_to_class('meteo_infos', models.ManyToManyField(MeteoInfo, default=0, editable=False))

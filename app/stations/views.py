@@ -1,20 +1,19 @@
 from django.shortcuts import render
-
-# Create your views here.
-
 import requests
 from django.http.response import JsonResponse
 from rest_framework.parsers import JSONParser
 from rest_framework import status
 from .models import Station, MeteoInfo
 from django.contrib.auth.models import User
-from .serializers import StationSerializer, MeteoInfoSerializer, MeteoInfoRequestSerializer, UserSerializer, UserStationsUpdateSerializer
+from .serializers import StationSerializer, MeteoInfoSerializer, MeteoInfoRequestSerializer, UserSerializer, \
+	UserStationsUpdateSerializer, NewUserSerializer
 from rest_framework import permissions
 from rest_framework.decorators import api_view, permission_classes
 from django.db.models import Q
 
 TIMEOUT = 5
 PERMISSION_DENIED = JsonResponse({'message': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
 
 def get_meteoinfo(url):
 	full_url = "http://{}".format(url)
@@ -36,7 +35,12 @@ def get_meteoinfo(url):
 	#    response['msg'] = f"Невозможный адресс станций."
 	return response
 
-#---STATIONS------------------------------------------------------------------------------------------------------------
+
+def username_exists(username):
+	return User.objects.filter(username=username)
+
+
+# --STATIONS------------------------------------------------------------------------------------------------------------
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([permissions.IsAuthenticated])
 def station_list(request):
@@ -73,6 +77,7 @@ def station_list(request):
 		count = Station.objects.all().delete()
 		return JsonResponse({'message': '{} Stations were deleted successfully!'.format(count[0])}, status=status.HTTP_204_NO_CONTENT)
 
+
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([permissions.IsAuthenticated])
 def station_detail(request, pk):
@@ -101,7 +106,8 @@ def station_detail(request, pk):
 		element.delete()
 		return JsonResponse({'message': 'Station was deleted successfully!'}, status=status.HTTP_204_NO_CONTENT)
 
-#---METEOINFO-----------------------------------------------------------------------------------------------------------
+
+# --METEOINFO-----------------------------------------------------------------------------------------------------------
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([permissions.IsAuthenticated])
 def meteoinfo_list(request):
@@ -109,18 +115,19 @@ def meteoinfo_list(request):
 	user = request.user
 	if request.method == 'GET':
 		elements = MeteoInfo.objects.all()
-		filter_author = request.GET.get('author', None)
+		# filter_author = request.GET.get('author', None)
 		filter_station = request.GET.get('station', None)
 
 		if not request.user.is_superuser or not request.user.is_staff:
 			current_user = User.objects.get(pk=request.user.id)
 			user_serializer = UserSerializer(current_user)
 			access_stations = user_serializer.data["stations_whitelist"]
-			elements = elements.filter(Q(author=current_user) | Q(station__in=access_stations))
+			# elements = elements.filter(Q(author=current_user) | Q(station__in=access_stations))
+			elements = elements.filter(Q(station__in=access_stations))
 
 		# author filter
-		if filter_author is not None and filter_author != '':
-			elements = elements.filter(author=filter_author)
+		# if filter_author is not None and filter_author != '':
+		# 	elements = elements.filter(author=filter_author)
 		# station filter
 		if filter_station is not None and filter_station != '':
 			elements = elements.filter(station=filter_station)
@@ -142,13 +149,12 @@ def meteoinfo_list(request):
 			except Station.DoesNotExist:
 				return JsonResponse({'message': "User doesn't have access to station {}".format(station.id)}, status=status.HTTP_403_FORBIDDEN)
 
-
 			content = get_meteoinfo(station.address)
 			if content['code'] == 1:
 				new_content = {
 					'station': initial_data['station'],
 					'content': content['msg'],
-					'author': user.id,
+					# 'author': user.id,
 				}
 				new_serializer = MeteoInfoSerializer(data=new_content)
 				if new_serializer.is_valid():
@@ -156,7 +162,7 @@ def meteoinfo_list(request):
 					user.info_requests_count = user.info_requests_count or 0
 					user.info_requests_count += 1
 
-					user.meteo_infos.add(new_serializer.data['id'])
+					# user.meteo_infos.add(new_serializer.data['id'])
 					user.save()
 					return JsonResponse(new_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -167,6 +173,7 @@ def meteoinfo_list(request):
 			return PERMISSION_DENIED
 		count = MeteoInfo.objects.all().delete()
 		return JsonResponse({'message': '{} Meteoinfos were deleted successfully!'.format(count[0])}, status=status.HTTP_204_NO_CONTENT)
+
 
 @api_view(['GET', 'DELETE'])
 @permission_classes([permissions.IsAuthenticated])
@@ -183,8 +190,8 @@ def meteoinfo_detail(request, pk):
 		access_stations = user_serializer.data["stations_whitelist"]
 
 		if element.station.pk not in access_stations:
-			if element.author.pk != request.user.id:
-				return PERMISSION_DENIED
+			# if element.author.pk != request.user.id:
+			return PERMISSION_DENIED
 
 	# GET / DELETE station
 	if request.method == 'GET':
@@ -197,18 +204,47 @@ def meteoinfo_detail(request, pk):
 		element.delete()
 		return JsonResponse({'message': 'Meteoinfo was deleted successfully!'}, status=status.HTTP_204_NO_CONTENT)
 
-#--USERS----------------------------------------------------------------------------------------------------------------
-@api_view(['GET'])  #, 'POST', 'DELETE'])
+
+# -USERS----------------------------------------------------------------------------------------------------------------
+@api_view(['GET', 'POST'])  # , 'POST', 'DELETE'])
 @permission_classes([permissions.IsAuthenticated])
 def user_list(request):
 	# GET list of users, POST a new user, ## DELETE all users
 	# user = request.user
+
 	if request.method == 'GET':
 		elements = User.objects.all()
 		serializer = UserSerializer(elements,  many=True)
-		return JsonResponse({"count": len(elements), "data": serializer.data}, safe=False) # 'safe=False' for objects serialization
+		return JsonResponse({"count": len(elements), "data": serializer.data}, safe=False)
+		# 'safe=False' for objects serialization
+	elif request.method == 'POST':
+		data = JSONParser().parse(request)
 
-	return JsonResponse({'message':"400 BAD REQUEST"}, status=status.HTTP_400_BAD_REQUEST)
+
+		if username_exists(data['username']):
+			return JsonResponse({'message': "User '"+data['username']+"' already exist"}, status=status.HTTP_400_BAD_REQUEST)
+
+		if len(data['stations_whitelist']) == 0:
+			data['stations_whitelist'] = [1]
+		serializer = NewUserSerializer(data=data)
+		if serializer.is_valid():
+			initial_data = serializer.initial_data
+			if request.user.is_superuser or request.user.is_staff:
+				user = User.objects.create_user(username=initial_data['username'],
+				                                email=initial_data['email'],
+				                                password=initial_data['password'])
+
+				for station in initial_data['stations_whitelist']:
+					user.stations_whitelist.add(station)
+				user.info_requests_count = 0
+				user.save()
+				serial = UserSerializer(user)
+				return JsonResponse({'message': "New user succesfully added", "data": serial.data}, safe=False)
+			else:
+				return PERMISSION_DENIED
+
+	return JsonResponse({'message': "400 BAD REQUEST"}, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([permissions.IsAuthenticated])
@@ -271,7 +307,10 @@ def user_detail(request, pk):
 		return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 	elif request.method == 'DELETE':
-		if not request.user.is_superuser or not request.user.is_staff:  #request.user != element or
+
+		if pk == "1":
+			return JsonResponse({'message': 'Root can not be deleted!'}, status=status.HTTP_204_NO_CONTENT)
+		elif not request.user.is_superuser or not request.user.is_staff:  #request.user != element or
 			return PERMISSION_DENIED
 		element.delete()
 		return JsonResponse({'message': 'User was deleted successfully!'}, status=status.HTTP_204_NO_CONTENT)
