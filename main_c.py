@@ -6,9 +6,9 @@ import json
 import cgi
 from logzero import logger
 from pathlib import Path
-import multiprocessing as mp
 from datetime import datetime
-import multiprocessing as mp  # parallel save data into mongo db
+import multiprocessing as mp
+import csv
 # parallel save data into mongo db
 # send them on server every 24 hours
 
@@ -18,7 +18,7 @@ path_config = 'config.json'
 
 # server ip
 server_host = "localhost"
-server_port = 8014
+server_port = 8015
 
 # serial port
 serial_port = "/dev/ttyS0"
@@ -33,6 +33,8 @@ logData = {
 	"logBackupCount": 3,
 }
 
+# station name
+station_name = "test station"
 
 def get_data():
 	ser = serial.Serial(serial_port, serial_spd, timeout=timeout)
@@ -134,12 +136,39 @@ def run(host, port, server_class=HTTPServer, handler_class=HttpGetHandler):
 		httpd.server_close()
 
 
+def create_filename():
+	now = datetime.now()
+	return 'data_{}.csv'.format(now.strftime('%Y_%m_%d'))
+
+
+def create_new_csv(filename=create_filename()):
+	with open(filename, mode='w', newline='') as file:
+		writer = csv.writer(file)
+		writer.writerow(['station', 'datetime', 'sensPm25', 'sensPressure', 'sensDhtTemp', 'sensDhtHumidity', 'sens18b20Temp'])
+
+
 def meteo_data(delay):
-	file_name = "meteo_data.csv"
+	filename = create_filename()
+	create_new_csv(filename)
 	while True:
 		time.sleep(delay)
-		data = get_data()
-		print(data)
+		with open(filename, mode='a', newline='') as file:
+			writer = csv.writer(file)
+
+			data = json.loads(get_data())
+			new_filename = create_filename()
+			local_current_time = datetime.now() #.strftime('%Y-%m-%d_%H:%M:%S')
+			print(data)
+
+			if new_filename != filename:
+				file.close()
+				create_new_csv(new_filename)
+				with open(new_filename, mode='a', newline='') as file:
+					writer2 = csv.writer(file)
+					writer2.writerow([station_name, local_current_time, data['sensPm25'], data['sensPressure'], data['sensDhtTemp'], data['sensDhtHumidity'], data['sens18b20Temp']])
+			else:
+				writer.writerow([station_name, local_current_time, data['sensPm25'], data['sensPressure'], data['sensDhtTemp'], data['sensDhtHumidity'], data['sens18b20Temp']])
+
 
 
 if __name__ == '__main__':
@@ -151,7 +180,7 @@ if __name__ == '__main__':
 	#logg = [log_full_path, logData['logMaxBytes'], logData['logBackupCount']]
 	#logfile(log_full_path, maxBytes=logData['logMaxBytes'], backupCount=logData['logBackupCount'])
 
-	p1 = mp.Process(meteo_data, args=(2))
+	p1 = mp.Process(target=meteo_data, args=(2,))
 	p1.start()
 
 	try:
@@ -164,7 +193,7 @@ if __name__ == '__main__':
 		logger.info('serving at {}:{}'.format(server_host, server_port))
 		# logger.info(get_data())
 		# run(server_host, server_port)
-		p2 = mp.Process(run, args=(server_host, server_port))
+		p2 = mp.Process(target=run, args=(server_host, server_port))
 		p2.start()
 
 	except Exception as e:
