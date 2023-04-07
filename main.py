@@ -148,11 +148,12 @@ if __name__ == '__main__':
 		# from subprocess import check_output
 		# public_ip = check_output(['hostname', '-I']).decode().strip().split(' ')[1]
 		if len(argv) == 2:
-			server_port=int(argv[1])
+			server_port = int(argv[1])
 		logger.info('serving at {}:{}'.format(server_host, server_port))
-		logger.info(get_data())
+		# logger.info(get_data())
 		run(server_host, server_port)
 	except Exception as e:
 		logger.error('Unexpected error: {}'.format(e))
 		raise SystemExit
 
+# add csv file for saving

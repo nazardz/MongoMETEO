@@ -13,6 +13,7 @@ from django.db.models import Q
 
 TIMEOUT = 5
 PERMISSION_DENIED = JsonResponse({'message': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+# add login redirection
 
 
 def get_meteoinfo(url):
