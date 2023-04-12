@@ -1,7 +1,9 @@
-from django.urls import re_path
+from django.urls import re_path, include
+from django.contrib.auth import views as auth_views
 from . import views
 
 urlpatterns = [
+	re_path(r'api/', include("django.contrib.auth.urls")),
 	re_path(r'^$', views.station_list, name="home"),
 	re_path(r'^api/stations$', views.station_list, name="stations-list"),
 	re_path(r'^api/stations/(?P<pk>[0-9]+)$', views.station_detail, name="station-detail"),

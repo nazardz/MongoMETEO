@@ -1,4 +1,3 @@
-from django.shortcuts import render
 import requests
 from django.http.response import JsonResponse
 from rest_framework.parsers import JSONParser
@@ -10,6 +9,8 @@ from .serializers import StationSerializer, MeteoInfoSerializer, MeteoInfoReques
 from rest_framework import permissions
 from rest_framework.decorators import api_view, permission_classes
 from django.db.models import Q
+import re
+from django.http import HttpResponse
 
 TIMEOUT = 5
 PERMISSION_DENIED = JsonResponse({'message': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
@@ -22,8 +23,8 @@ def get_meteoinfo(url):
 	try:
 		r = requests.get(full_url, timeout=TIMEOUT)
 		if r.status_code == 200:
-			response['msg'] = r.json()
 			response['code'] = 1
+			response['msg'] = r.json()
 	except requests.exceptions.ReadTimeout:
 		pass
 	except requests.exceptions.ConnectTimeout:
@@ -118,6 +119,7 @@ def meteoinfo_list(request):
 		elements = MeteoInfo.objects.all()
 		# filter_author = request.GET.get('author', None)
 		filter_station = request.GET.get('station', None)
+		filter_datetime = request.GET.get('period', None)
 
 		if not request.user.is_superuser or not request.user.is_staff:
 			current_user = User.objects.get(pk=request.user.id)
@@ -132,6 +134,24 @@ def meteoinfo_list(request):
 		# station filter
 		if filter_station is not None and filter_station != '':
 			elements = elements.filter(station=filter_station)
+			if filter_datetime is not None and filter_datetime != '': # 2023_04_09
+				station = Station.objects.get(pk=filter_station)
+				full_url = "http://"+station.address+"/filter?day="+filter_datetime
+				response = requests.get(full_url)
+				if response.status_code == 200:
+					response_headers = {
+						'Content-Type': 'text/csv',
+						'Content-Disposition': 'attachment; filename="data'+filter_datetime+'.csv"',
+					}
+					return HttpResponse(response.content, headers=response_headers)
+				else:
+					message = response.content.decode('utf-8')
+					match = re.search(r'Message: ([^\n]*)\.', message)
+					if match:
+						message = match.group(1)
+					return JsonResponse({'message': message}, status=status.HTTP_400_BAD_REQUEST)
+
+					# return HttpResponse(status=404)
 
 		serializer = MeteoInfoSerializer(elements, many=True)
 		return JsonResponse({"count": len(elements), "data": serializer.data}, safe=False)
@@ -232,8 +252,8 @@ def user_list(request):
 			initial_data = serializer.initial_data
 			if request.user.is_superuser or request.user.is_staff:
 				user = User.objects.create_user(username=initial_data['username'],
-				                                email=initial_data['email'],
-				                                password=initial_data['password'])
+												email=initial_data['email'],
+												password=initial_data['password'])
 
 				for station in initial_data['stations_whitelist']:
 					user.stations_whitelist.add(station)

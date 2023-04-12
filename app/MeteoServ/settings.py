@@ -63,7 +63,7 @@ ROOT_URLCONF = 'MeteoServ.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -82,12 +82,22 @@ WSGI_APPLICATION = 'MeteoServ.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'djongo',
+#        'NAME': 'meteoDB',
+#        'HOST': '127.0.0.1',
+#        'PORT': 27017,
+#    }
+#}
 DATABASES = {
     'default': {
         'ENGINE': 'djongo',
         'NAME': 'meteoDB',
-        'HOST': '127.0.0.1',
-        'PORT': 27017,
+        'ENFORCE_SCHEMA': False,
+        'CLIENT': {
+            'host': 'mongodb+srv://root:admin@cluster0.bxtfzhe.mongodb.net/?retryWrites=true&w=majority',
+        },
     }
 }
 
@@ -139,8 +149,8 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-LOGIN_REDIRECT_URL = 'home'
-LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
 
 # AUTH_PROFILE_MODULE = 'user_profile.UserProfile'
 
